@@ -183,6 +183,15 @@
     <label for="blurRange">BG Blur</label>
     <input id="blurRange" type="range" min="0" max="40" step="1" />
     <span id="blurVal" class="val"></span>
+    <label for="glowRRange">Glow R</label>
+    <input id="glowRRange" type="range" min="0" max="255" step="1" />
+    <span id="glowRVal" class="val"></span>
+    <label for="glowGRange">G</label>
+    <input id="glowGRange" type="range" min="0" max="255" step="1" />
+    <span id="glowGVal" class="val"></span>
+    <label for="glowBRange">B</label>
+    <input id="glowBRange" type="range" min="0" max="255" step="1" />
+    <span id="glowBVal" class="val"></span>
     <button id="copyBtn" type="button">Скопировать</button>
   </div>
 
@@ -327,6 +336,12 @@
         const bgxVal = document.getElementById('bgxVal');
         const bgyVal = document.getElementById('bgyVal');
         const blurVal = document.getElementById('blurVal');
+        const glowRRange = document.getElementById('glowRRange');
+        const glowGRange = document.getElementById('glowGRange');
+        const glowBRange = document.getElementById('glowBRange');
+        const glowRVal = document.getElementById('glowRVal');
+        const glowGVal = document.getElementById('glowGVal');
+        const glowBVal = document.getElementById('glowBVal');
         const copyBtn = document.getElementById('copyBtn');
         // инициализируем tRange текущим значением CSS-переменной
         const cs = getComputedStyle(document.documentElement);
@@ -338,6 +353,23 @@
         const currentBgY = rawBgY ? parseFloat(rawBgY) : 50;
         const rawBgBlur = (cs.getPropertyValue('--bg-blur') || '').trim();
         const currentBgBlur = rawBgBlur ? parseFloat(rawBgBlur) : 18;
+        // вычисляем исходный цвет свечения
+        function parseRGB(str){
+          const m = (str || '').match(/rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+          return m ? [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])] : null;
+        }
+        function parseHex(str){
+          const s = (str || '').trim();
+          if (!/^#?[0-9a-f]{6}$/i.test(s)) return null;
+          const h = s.replace('#','');
+          return [
+            parseInt(h.slice(0,2),16),
+            parseInt(h.slice(2,4),16),
+            parseInt(h.slice(4,6),16)
+          ];
+        }
+        let rgb = parseRGB(getComputedStyle(glows[0]).fill);
+        if (!rgb) rgb = parseHex(cs.getPropertyValue('--glow-color')) || [255,138,0];
         kRange.value = String(currentK);
         tRange.value = String(currentTap);
         rRange.value = String(R);
@@ -345,6 +377,9 @@
         bgxRange.value = String(currentBgX);
         bgyRange.value = String(currentBgY);
         blurRange.value = String(currentBgBlur);
+        glowRRange.value = String(rgb[0]);
+        glowGRange.value = String(rgb[1]);
+        glowBRange.value = String(rgb[2]);
         kVal.textContent = String(currentK);
         tVal.textContent = String(Math.round(currentTap));
         RVal.textContent = String(R);
@@ -352,6 +387,16 @@
         bgxVal.textContent = String(currentBgX);
         bgyVal.textContent = String(currentBgY);
         blurVal.textContent = String(currentBgBlur);
+        glowRVal.textContent = String(rgb[0]);
+        glowGVal.textContent = String(rgb[1]);
+        glowBVal.textContent = String(rgb[2]);
+        function applyGlowColor(r,g,b){
+          const color = `rgb(${r}, ${g}, ${b})`;
+          // применяем к ссылке-обёртке и к самим элементам на всякий случай
+          document.querySelectorAll('.hotspot-link').forEach((a) => a.style.setProperty('--glow-color', color));
+          circles.forEach((c) => c.style.setProperty('--glow-color', color));
+          glows.forEach((gEl) => gEl.style.setProperty('--glow-color', color));
+        }
         kRange.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value) || currentK;
           document.documentElement.style.setProperty('--table-k', String(val));
@@ -382,13 +427,28 @@
           document.documentElement.style.setProperty('--bg-blur', String(val) + 'px');
           blurVal.textContent = String(val);
         });
+        function onRGBChange(){
+          const r = parseInt(glowRRange.value)||0;
+          const g = parseInt(glowGRange.value)||0;
+          const b = parseInt(glowBRange.value)||0;
+          glowRVal.textContent = String(r);
+          glowGVal.textContent = String(g);
+          glowBVal.textContent = String(b);
+          applyGlowColor(r,g,b);
+        }
+        glowRRange.addEventListener('input', onRGBChange);
+        glowGRange.addEventListener('input', onRGBChange);
+        glowBRange.addEventListener('input', onRGBChange);
         copyBtn.addEventListener('click', () => {
           const rPx = (getComputedStyle(document.documentElement).getPropertyValue('--tap') || '').trim();
           const tableK = (getComputedStyle(document.documentElement).getPropertyValue('--table-k') || '').trim();
           const bgX = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-x') || '0%')).trim();
           const bgY = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-y') || '0%')).trim();
           const bgBlur = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-blur') || '0px')).trim();
-          const text = `tableK=${tableK}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}, bgBlur=${bgBlur}`;
+          const r = parseInt(glowRRange.value)||0;
+          const g = parseInt(glowGRange.value)||0;
+          const b = parseInt(glowBRange.value)||0;
+          const text = `tableK=${tableK}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}, bgBlur=${bgBlur}, glowRGB=rgb(${r},${g},${b})`;
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text);
             copyBtn.textContent = 'Скопировано';
