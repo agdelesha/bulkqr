@@ -19,18 +19,35 @@
       --glow-color: #ff8a00; /* цвет свечения точек */
       --bg-x: 50%;
       --bg-y: 335%;
+      --bg-blur: 18px; /* степень размытия фона */
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       margin: 0;
-      background:
-        linear-gradient(rgba(247,239,230,0.60), rgba(247,239,230,0.60)),
-        url('fon.webp') var(--bg-x, 50%) var(--bg-y, 50%) / cover no-repeat fixed;
+      background: #f7efe6;
       color: #321;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       touch-action: manipulation;
+    }
+    /* размазанный фон через псевдоэлементы */
+    body::before {
+      content: "";
+      position: fixed; inset: 0;
+      background: url('fon.webp') var(--bg-x, 50%) var(--bg-y, 50%) / cover no-repeat;
+      filter: blur(var(--bg-blur, 18px));
+      transform: scale(1.04); /* чтобы скрыть края после blur */
+      transform-origin: center;
+      z-index: -2;
+      pointer-events: none;
+    }
+    body::after {
+      content: "";
+      position: fixed; inset: 0;
+      background: linear-gradient(rgba(247,239,230,0.60), rgba(247,239,230,0.60));
+      z-index: -1;
+      pointer-events: none;
     }
     .stage {
       height: 100dvh;
@@ -163,6 +180,9 @@
     <label for="bgyRange">BG Y</label>
     <input id="bgyRange" type="range" min="-400" max="400" step="0.5" />
     <span id="bgyVal" class="val"></span>
+    <label for="blurRange">BG Blur</label>
+    <input id="blurRange" type="range" min="0" max="40" step="1" />
+    <span id="blurVal" class="val"></span>
     <button id="copyBtn" type="button">Скопировать</button>
   </div>
 
@@ -306,6 +326,7 @@
         const oVal = document.getElementById('oVal');
         const bgxVal = document.getElementById('bgxVal');
         const bgyVal = document.getElementById('bgyVal');
+        const blurVal = document.getElementById('blurVal');
         const copyBtn = document.getElementById('copyBtn');
         // инициализируем tRange текущим значением CSS-переменной
         const cs = getComputedStyle(document.documentElement);
@@ -315,18 +336,22 @@
         const rawBgY = (cs.getPropertyValue('--bg-y') || '').trim();
         const currentBgX = rawBgX ? parseFloat(rawBgX) : 50;
         const currentBgY = rawBgY ? parseFloat(rawBgY) : 50;
+        const rawBgBlur = (cs.getPropertyValue('--bg-blur') || '').trim();
+        const currentBgBlur = rawBgBlur ? parseFloat(rawBgBlur) : 18;
         kRange.value = String(currentK);
         tRange.value = String(currentTap);
         rRange.value = String(R);
         oRange.value = String(offset);
         bgxRange.value = String(currentBgX);
         bgyRange.value = String(currentBgY);
+        blurRange.value = String(currentBgBlur);
         kVal.textContent = String(currentK);
         tVal.textContent = String(Math.round(currentTap));
         RVal.textContent = String(R);
         oVal.textContent = String(offset);
         bgxVal.textContent = String(currentBgX);
         bgyVal.textContent = String(currentBgY);
+        blurVal.textContent = String(currentBgBlur);
         kRange.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value) || currentK;
           document.documentElement.style.setProperty('--table-k', String(val));
@@ -352,12 +377,18 @@
           document.documentElement.style.setProperty('--bg-y', String(val) + '%');
           bgyVal.textContent = String(val);
         });
+        blurRange.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value) || 18;
+          document.documentElement.style.setProperty('--bg-blur', String(val) + 'px');
+          blurVal.textContent = String(val);
+        });
         copyBtn.addEventListener('click', () => {
           const rPx = (getComputedStyle(document.documentElement).getPropertyValue('--tap') || '').trim();
           const tableK = (getComputedStyle(document.documentElement).getPropertyValue('--table-k') || '').trim();
           const bgX = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-x') || '0%')).trim();
           const bgY = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-y') || '0%')).trim();
-          const text = `tableK=${tableK}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}`;
+          const bgBlur = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-blur') || '0px')).trim();
+          const text = `tableK=${tableK}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}, bgBlur=${bgBlur}`;
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text);
             copyBtn.textContent = 'Скопировано';
