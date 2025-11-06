@@ -192,6 +192,8 @@
     <label for="glowBRange">B</label>
     <input id="glowBRange" type="range" min="0" max="255" step="1" />
     <span id="glowBVal" class="val"></span>
+    <button id="saveBtn" type="button">Сохранить изменения</button>
+    <button id="resetBtn" type="button">Сбросить</button>
     <button id="copyBtn" type="button">Скопировать</button>
   </div>
 
@@ -202,6 +204,18 @@
       const cy = 793.2475 / 2;
       let R = 229;
       let offset = 17;
+      // Читаем сохранённую конфигурацию (если есть) и применяем базовые значения сразу
+      let savedConf = {};
+      try { savedConf = JSON.parse(localStorage.getItem('bulkqrConfig') || '{}') || {}; } catch(_) {}
+      if (savedConf && typeof savedConf === 'object') {
+        if (savedConf.tableK != null) document.documentElement.style.setProperty('--table-k', String(savedConf.tableK));
+        if (savedConf.rPx != null) document.documentElement.style.setProperty('--tap', String(savedConf.rPx));
+        if (typeof savedConf.R === 'number') R = savedConf.R;
+        if (typeof savedConf.offset === 'number') offset = savedConf.offset;
+        if (savedConf.bgX) document.documentElement.style.setProperty('--bg-x', savedConf.bgX);
+        if (savedConf.bgY) document.documentElement.style.setProperty('--bg-y', savedConf.bgY);
+        if (savedConf.bgBlur) document.documentElement.style.setProperty('--bg-blur', savedConf.bgBlur);
+      }
       // Расчёт радиуса круга в координатах viewBox, чтобы диаметр на экране ≈ var(--tap) px
       function computeR() {
         const style = getComputedStyle(document.documentElement);
@@ -248,6 +262,11 @@
       const baseAngles = files.map((_, i) => -90 + i * (360 / files.length));
       const circles = [];
       const glows = [];
+      function setGlowColor(color) {
+        document.querySelectorAll('.hotspot-link').forEach((a) => a.style.setProperty('--glow-color', color));
+        circles.forEach((c) => c.style.setProperty('--glow-color', color));
+        glows.forEach((gEl) => gEl.style.setProperty('--glow-color', color));
+      }
       const labels = [];
       files.forEach((item, i) => {
         const a = document.createElementNS(svgNS, 'a');
@@ -282,6 +301,11 @@
         labelsGroup.appendChild(t);
         labels.push(t);
       });
+      // Применяем сохранённый цвет свечения, если есть
+      if (savedConf && savedConf.glowRGB) {
+        const m = String(savedConf.glowRGB).match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (m) setGlowColor(`rgb(${m[1]}, ${m[2]}, ${m[3]})`);
+      }
 
       function setPositions() {
         baseAngles.forEach((deg, i) => {
@@ -336,6 +360,8 @@
         const bgxVal = document.getElementById('bgxVal');
         const bgyVal = document.getElementById('bgyVal');
         const blurVal = document.getElementById('blurVal');
+        const saveBtn = document.getElementById('saveBtn');
+        const resetBtn = document.getElementById('resetBtn');
         const glowRRange = document.getElementById('glowRRange');
         const glowGRange = document.getElementById('glowGRange');
         const glowBRange = document.getElementById('glowBRange');
@@ -353,6 +379,17 @@
         const currentBgY = rawBgY ? parseFloat(rawBgY) : 50;
         const rawBgBlur = (cs.getPropertyValue('--bg-blur') || '').trim();
         const currentBgBlur = rawBgBlur ? parseFloat(rawBgBlur) : 18;
+        // Заданные по умолчанию значения для быстрого сброса
+        const DEFAULTS = {
+          tableK: 1,
+          rPx: 64,
+          R: 229,
+          offset: 17,
+          bgX: '50%',
+          bgY: '335%',
+          bgBlur: '18px',
+          glow: { r: 255, g: 138, b: 0 }
+        };
         // вычисляем исходный цвет свечения
         function parseRGB(str){
           const m = (str || '').match(/rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
@@ -390,13 +427,6 @@
         glowRVal.textContent = String(rgb[0]);
         glowGVal.textContent = String(rgb[1]);
         glowBVal.textContent = String(rgb[2]);
-        function applyGlowColor(r,g,b){
-          const color = `rgb(${r}, ${g}, ${b})`;
-          // применяем к ссылке-обёртке и к самим элементам на всякий случай
-          document.querySelectorAll('.hotspot-link').forEach((a) => a.style.setProperty('--glow-color', color));
-          circles.forEach((c) => c.style.setProperty('--glow-color', color));
-          glows.forEach((gEl) => gEl.style.setProperty('--glow-color', color));
-        }
         kRange.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value) || currentK;
           document.documentElement.style.setProperty('--table-k', String(val));
@@ -434,7 +464,7 @@
           glowRVal.textContent = String(r);
           glowGVal.textContent = String(g);
           glowBVal.textContent = String(b);
-          applyGlowColor(r,g,b);
+          setGlowColor(`rgb(${r}, ${g}, ${b})`);
         }
         glowRRange.addEventListener('input', onRGBChange);
         glowGRange.addEventListener('input', onRGBChange);
@@ -456,6 +486,48 @@
           } else {
             alert(text);
           }
+        });
+
+        // Сброс к дефолту
+        resetBtn.addEventListener('click', () => {
+          try { localStorage.removeItem('bulkqrConfig'); } catch(_) {}
+          // CSS-переменные
+          document.documentElement.style.setProperty('--table-k', String(DEFAULTS.tableK));
+          document.documentElement.style.setProperty('--tap', String(DEFAULTS.rPx));
+          document.documentElement.style.setProperty('--bg-x', DEFAULTS.bgX);
+          document.documentElement.style.setProperty('--bg-y', DEFAULTS.bgY);
+          document.documentElement.style.setProperty('--bg-blur', DEFAULTS.bgBlur);
+          // Параметры окружности
+          R = DEFAULTS.R;
+          offset = DEFAULTS.offset;
+          setPositions();
+          applyRadius();
+          // Цвет свечения
+          setGlowColor(`rgb(${DEFAULTS.glow.r}, ${DEFAULTS.glow.g}, ${DEFAULTS.glow.b})`);
+          // Обновляем значения контролов и подписи
+          kRange.value = String(DEFAULTS.tableK);
+          tRange.value = String(DEFAULTS.rPx);
+          rRange.value = String(DEFAULTS.R);
+          oRange.value = String(DEFAULTS.offset);
+          bgxRange.value = String(parseFloat(DEFAULTS.bgX));
+          bgyRange.value = String(parseFloat(DEFAULTS.bgY));
+          blurRange.value = String(parseFloat(DEFAULTS.bgBlur));
+          glowRRange.value = String(DEFAULTS.glow.r);
+          glowGRange.value = String(DEFAULTS.glow.g);
+          glowBRange.value = String(DEFAULTS.glow.b);
+          kVal.textContent = String(DEFAULTS.tableK);
+          tVal.textContent = String(DEFAULTS.rPx);
+          RVal.textContent = String(DEFAULTS.R);
+          oVal.textContent = String(DEFAULTS.offset);
+          bgxVal.textContent = String(parseFloat(DEFAULTS.bgX));
+          bgyVal.textContent = String(parseFloat(DEFAULTS.bgY));
+          blurVal.textContent = String(parseFloat(DEFAULTS.bgBlur));
+          glowRVal.textContent = String(DEFAULTS.glow.r);
+          glowGVal.textContent = String(DEFAULTS.glow.g);
+          glowBVal.textContent = String(DEFAULTS.glow.b);
+          const prev = resetBtn.textContent;
+          resetBtn.textContent = 'Сброшено';
+          setTimeout(() => resetBtn.textContent = prev || 'Сбросить', 1200);
         });
       }
 
