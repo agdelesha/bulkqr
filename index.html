@@ -130,6 +130,10 @@
       #ctrl input[type=range] { width: 96px; }
       #ctrl .val { min-width: 36px; }
     }
+    #topHint { position: fixed; top: 12px; left: 12px; z-index: 60; display: none; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(255,255,255,.92); border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; box-shadow: 0 8px 22px rgba(0,0,0,.12); backdrop-filter: blur(8px); font: 600 13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #333; opacity: 0; transform: translateY(-6px); }
+    #topHint.show { opacity: 1; transform: translateY(0); transition: opacity .28s ease, transform .28s ease; }
+    #topHint .icon { font-size: 16px; line-height: 1; }
+    #topHint .text { line-height: 1.2; }
   </style>
 </head>
 <body>
@@ -168,6 +172,8 @@
       <g id="labels" />
     </svg>
   </main>
+
+  <div id="topHint" aria-live="polite"><span class="icon">👆</span><span class="text">Нажимайте на кружочки — откроются PDF</span></div>
 
   <div id="ctrl">
     <label for="kRange">Size</label>
@@ -340,12 +346,25 @@
       window.addEventListener('resize', applyRadius);
       // Подсказка: снимаем класс hints через 6с или при первом взаимодействии
       const svgRoot = document.querySelector('svg');
-      const clearHints = () => svgRoot && svgRoot.classList.remove('hints');
+      const clearHints = () => { if (svgRoot) svgRoot.classList.remove('hints'); };
       setTimeout(clearHints, 6000);
       ['pointerdown','keydown','touchstart'].forEach(ev =>
         window.addEventListener(ev, clearHints, { once: true, passive: true })
       );
-      // На возврате из bfcache или после видимости снимаем фокус со всех ссылок
+
+      // Лёгкое уведомление в левом верхнем углу (показываем один раз)
+      const HINT_KEY = 'bulkqrTopHintShown';
+      const topHintEl = document.getElementById('topHint');
+      function showTopHint(){ if (!topHintEl) return; topHintEl.style.display = 'flex'; requestAnimationFrame(() => topHintEl.classList.add('show')); }
+      function hideTopHint(persist){ if (!topHintEl) return; topHintEl.classList.remove('show'); setTimeout(() => { topHintEl.style.display = 'none'; }, 250); if (persist) { try { localStorage.setItem(HINT_KEY, '1'); } catch(_) {} } }
+      if (topHintEl && !localStorage.getItem(HINT_KEY)) {
+        showTopHint();
+        setTimeout(() => hideTopHint(true), 5000);
+        ['pointerdown','keydown','touchstart'].forEach(ev => window.addEventListener(ev, () => hideTopHint(true), { once: true, passive: true }));
+        topHintEl.addEventListener('click', () => hideTopHint(true));
+      }
+
+      // Снимаем фокусы у ссылок после возврата/видимости
       window.addEventListener('pageshow', () => {
         document.querySelectorAll('.hotspot-link').forEach((el) => { try { el.blur(); } catch(_){} });
       });
