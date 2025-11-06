@@ -488,6 +488,32 @@
           }
         });
 
+        saveBtn.addEventListener('click', () => {
+          const csDoc = getComputedStyle(document.documentElement);
+          const rPx = (csDoc.getPropertyValue('--tap') || '').trim();
+          const tableK = (csDoc.getPropertyValue('--table-k') || '').trim();
+          const bgX = (csDoc.getPropertyValue('--bg-x') || '50%').trim();
+          const bgY = (csDoc.getPropertyValue('--bg-y') || '50%').trim();
+          const bgBlur = (csDoc.getPropertyValue('--bg-blur') || '18px').trim();
+          const rC = parseInt(glowRRange.value)||0;
+          const gC = parseInt(glowGRange.value)||0;
+          const bC = parseInt(glowBRange.value)||0;
+          const conf = {
+            tableK: parseFloat(tableK),
+            rPx: parseFloat(rPx),
+            R,
+            offset,
+            bgX,
+            bgY,
+            bgBlur,
+            glowRGB: `rgb(${rC},${gC},${bC})`
+          };
+          try { localStorage.setItem('bulkqrConfig', JSON.stringify(conf)); } catch(_) {}
+          const prevText = saveBtn.textContent;
+          saveBtn.textContent = 'Сохранено';
+          setTimeout(() => saveBtn.textContent = prevText || 'Сохранить изменения', 1200);
+        });
+
         // Сброс к дефолту
         resetBtn.addEventListener('click', () => {
           try { localStorage.removeItem('bulkqrConfig'); } catch(_) {}
