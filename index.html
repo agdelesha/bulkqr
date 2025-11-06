@@ -165,7 +165,7 @@
         </mask>
       </defs>
       <!-- Фоновое изображение: оптимизированный table.webp -->
-      <image href="table.webp" x="0" y="0" width="793.2475" height="793.2475" preserveAspectRatio="xMidYMid meet" style="pointer-events:none" mask="url(#edgeMask)" />
+      <image id="tableImage" href="table.webp" x="0" y="0" width="793.2475" height="793.2475" preserveAspectRatio="xMidYMid meet" style="pointer-events:none" mask="url(#edgeMask)" />
 
       <!-- Слой с кликабельными точками -->
       <g id="hotspots" />
@@ -179,6 +179,9 @@
     <label for="kRange">Size</label>
     <input id="kRange" type="range" min="0.60" max="1.00" step="0.005" />
     <span id="kVal" class="val"></span>
+    <label for="imgRange">Table</label>
+    <input id="imgRange" type="range" min="0.85" max="1.15" step="0.005" />
+    <span id="imgVal" class="val"></span>
     <label for="tRange">r(px)</label>
     <input id="tRange" type="range" min="10" max="64" step="1" />
     <span id="tVal" class="val"></span>
@@ -214,6 +217,7 @@
   <script>
     (function() {
       const svgEl = document.querySelector('svg');
+      const tableImage = document.getElementById('tableImage');
       const cx = 793.2475 / 2;
       const cy = 793.2475 / 2;
       let R = 229;
@@ -230,6 +234,16 @@
         if (savedConf.bgY) document.documentElement.style.setProperty('--bg-y', savedConf.bgY);
         if (savedConf.bgBlur) document.documentElement.style.setProperty('--bg-blur', savedConf.bgBlur);
       }
+      function applyTableImageScale(k) {
+        if (!tableImage) return;
+        const val = Math.max(0.5, Math.min(2, k || 1));
+        tableImage.setAttribute('transform', `translate(${cx},${cy}) scale(${val}) translate(${-cx},${-cy})`);
+      }
+      let tableImgK = 1;
+      if (savedConf && typeof savedConf.tableImgK === 'number') {
+        tableImgK = savedConf.tableImgK;
+      }
+      applyTableImageScale(tableImgK);
       // Расчёт радиуса круга в координатах viewBox, чтобы диаметр на экране ≈ var(--tap) px
       function computeR() {
         const style = getComputedStyle(document.documentElement);
@@ -380,6 +394,8 @@
         const oRange = document.getElementById('oRange');
         const bgxRange = document.getElementById('bgxRange');
         const bgyRange = document.getElementById('bgyRange');
+        const imgRange = document.getElementById('imgRange');
+        const imgVal = document.getElementById('imgVal');
         const kVal = document.getElementById('kVal');
         const tVal = document.getElementById('tVal');
         const RVal = document.getElementById('RVal');
@@ -409,6 +425,7 @@
         // Заданные по умолчанию значения для быстрого сброса
         const DEFAULTS = {
           tableK: 1,
+          tableImgK: 1,
           rPx: 64,
           R: 229,
           offset: 17,
@@ -454,12 +471,19 @@
         glowRVal.textContent = String(rgb[0]);
         glowGVal.textContent = String(rgb[1]);
         glowBVal.textContent = String(rgb[2]);
+        imgRange.value = String(tableImgK);
+        imgVal.textContent = String(tableImgK);
         kRange.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value) || currentK;
           document.documentElement.style.setProperty('--table-k', String(val));
           // радиусы клика пересчитаем под новый масштаб
           applyRadius();
           kVal.textContent = String(val);
+        });
+        imgRange.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value) || 1;
+          applyTableImageScale(val);
+          imgVal.textContent = String(val);
         });
         tRange.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value) || currentTap;
@@ -505,7 +529,7 @@
           const r = parseInt(glowRRange.value)||0;
           const g = parseInt(glowGRange.value)||0;
           const b = parseInt(glowBRange.value)||0;
-          const text = `tableK=${tableK}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}, bgBlur=${bgBlur}, glowRGB=rgb(${r},${g},${b})`;
+          const text = `tableK=${tableK}, tableImgK=${imgRange.value}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}, bgBlur=${bgBlur}, glowRGB=rgb(${r},${g},${b})`;
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text);
             copyBtn.textContent = 'Скопировано';
@@ -527,6 +551,7 @@
           const bC = parseInt(glowBRange.value)||0;
           const conf = {
             tableK: parseFloat(tableK),
+            tableImgK: parseFloat(imgRange.value),
             rPx: parseFloat(rPx),
             R,
             offset,
@@ -550,6 +575,8 @@
           document.documentElement.style.setProperty('--bg-x', DEFAULTS.bgX);
           document.documentElement.style.setProperty('--bg-y', DEFAULTS.bgY);
           document.documentElement.style.setProperty('--bg-blur', DEFAULTS.bgBlur);
+          // Масштаб изображения стола
+          applyTableImageScale(DEFAULTS.tableImgK);
           // Параметры окружности
           R = DEFAULTS.R;
           offset = DEFAULTS.offset;
@@ -559,6 +586,7 @@
           setGlowColor(`rgb(${DEFAULTS.glow.r}, ${DEFAULTS.glow.g}, ${DEFAULTS.glow.b})`);
           // Обновляем значения контролов и подписи
           kRange.value = String(DEFAULTS.tableK);
+          imgRange.value = String(DEFAULTS.tableImgK);
           tRange.value = String(DEFAULTS.rPx);
           rRange.value = String(DEFAULTS.R);
           oRange.value = String(DEFAULTS.offset);
@@ -569,6 +597,7 @@
           glowGRange.value = String(DEFAULTS.glow.g);
           glowBRange.value = String(DEFAULTS.glow.b);
           kVal.textContent = String(DEFAULTS.tableK);
+          imgVal.textContent = String(DEFAULTS.tableImgK);
           tVal.textContent = String(DEFAULTS.rPx);
           RVal.textContent = String(DEFAULTS.R);
           oVal.textContent = String(DEFAULTS.offset);
