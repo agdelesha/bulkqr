@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Бульк — интерактивный круг</title>
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="Бульк — интерактивная круговая навигация: 10 кругов, каждый открывает соответствующий PDF." />
+  <meta name="theme-color" content="#f7efe6" />
+  <link rel="preload" as="image" href="table.webp">
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="googlebot" content="noindex, nofollow" />
+  <style>
+    :root {
+      --tap: 64; /* диаметр тап-зоны в px при отрисовке на экране */
+      --table-k: 1; /* масштаб круга относительно vmin */
+      --ring-color: #cc4832;
+      --hover-fill: rgba(255,255,255,0.12);
+      --glow-color: #ff8a00; /* цвет свечения точек */
+      --bg-x: 50%;
+      --bg-y: 335%;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(rgba(247,239,230,0.60), rgba(247,239,230,0.60)),
+        url('fon.webp') var(--bg-x, 50%) var(--bg-y, 50%) / cover no-repeat fixed;
+      color: #321;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      touch-action: manipulation;
+    }
+    .stage {
+      height: 100dvh;
+      width: 100vw;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    svg {
+      width: calc(100vmin * var(--table-k));
+      height: calc(100vmin * var(--table-k));
+      display: block;
+    }
+
+    /* интерактивные точки */
+    a.hotspot-link { outline: none; -webkit-tap-highlight-color: transparent; }
+    circle.hotspot {
+      fill: transparent;
+      stroke: none;
+      pointer-events: all;
+      filter: none;
+      transition: fill 140ms ease, transform 140ms ease, opacity 140ms ease;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    circle.glow {
+      fill: var(--glow-color);
+      opacity: 0;
+      pointer-events: none;
+      filter: url(#softGlow);
+      transition: opacity 160ms ease, transform 160ms ease;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+    a.hotspot-link:focus-visible circle.hotspot,
+    a.hotspot-link:hover circle.hotspot {
+      fill: var(--hover-fill);
+      filter: drop-shadow(0 0 14px var(--glow-color)) drop-shadow(0 0 30px var(--glow-color));
+      transform: scale(1.07);
+    }
+
+    /* подсказка: мягкая пульсация в первые секунды */
+    @keyframes hintPulse {
+      0%   { fill: rgba(255,255,255,0.00); transform: scale(1); }
+      50%  { fill: rgba(255,255,255,0.16); transform: scale(1.06); }
+      100% { fill: rgba(255,255,255,0.00); transform: scale(1); }
+    }
+    .hints circle.glow { animation: hintPulse 1.6s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { .hints circle.glow, .sequence circle.glow { animation: none !important; } }
+
+    /* последовательное свечение по кругу */
+    .sequence circle.glow {
+      animation: seqGlow var(--cycle, 12s) linear infinite;
+      animation-delay: calc(var(--i) * var(--step, 1.2s));
+    }
+    @keyframes seqGlow {
+      0%         { visibility: visible; opacity: 1; }
+      9.8%       { visibility: visible; opacity: 1; }
+      9.81%      { visibility: hidden; opacity: 0; }
+      100%       { visibility: hidden; opacity: 0; }
+    }
+
+    body.debug circle.hotspot { fill: rgba(29,78,216,0.14); stroke: #1d4ed8; stroke-width: 1.5; }
+    text.hotspot-label { display: none; }
+    body.debug text.hotspot-label { display: block; fill: #1d4ed8; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; font-size: 12px; pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+
+    #ctrl { position: fixed; left: 8px; right: 8px; bottom: 12px; transform: none; display: none; background: rgba(255,255,255,.92); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.16); padding: 8px 12px; gap: 10px; backdrop-filter: blur(8px); overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+    body.debug #ctrl { display: flex; align-items: center; flex-wrap: nowrap; }
+    #ctrl label { font: 12px system-ui, sans-serif; color: #333; margin-right: 6px; white-space: nowrap; }
+    #ctrl input[type=range] { width: 120px; }
+    #ctrl .val { min-width: 42px; text-align: right; font: 600 12px system-ui, sans-serif; color: #111; }
+    #copyBtn { margin-left: 8px; font: 12px system-ui, sans-serif; padding: 6px 8px; border-radius: 8px; border: 1px solid #ddd; background: #fff; }
+
+    /* на очень маленьких экранах немного уменьшаем радиус, чтобы не вылезало за пределы */
+    @media (max-width: 360px) {
+      :root { --tap: 64; }
+    }
+    @media (max-width: 520px) {
+      #ctrl { padding: 6px 8px; gap: 8px; }
+      #ctrl input[type=range] { width: 96px; }
+      #ctrl .val { min-width: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <!-- Базовый SVG контейнер. Используем viewBox оригинального файла -->
+    <svg viewBox="0 0 793.2475 793.2475" role="img" aria-label="Интерактивная круговая навигация">
+      <defs>
+        <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+          <!-- размываем исходную форму -->
+          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+          <!-- окрашиваем размытие в яркий цвет -->
+          <feFlood flood-opacity="0.95" result="flood" style="flood-color: var(--glow-color)" />
+          <feComposite in="flood" in2="blur" operator="in" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter id="softGlow" filterUnits="userSpaceOnUse" x="-2000" y="-2000" width="12000" height="12000">
+          <feGaussianBlur stdDeviation="24" />
+        </filter>
+      </defs>
+      <!-- Фоновое изображение: оптимизированный table.webp -->
+      <image href="table.webp" x="0" y="0" width="793.2475" height="793.2475" preserveAspectRatio="xMidYMid meet" style="pointer-events:none" />
+
+      <!-- Слой с кликабельными точками -->
+      <g id="hotspots" />
+      <g id="labels" />
+    </svg>
+  </main>
+
+  <div id="ctrl">
+    <label for="kRange">Size</label>
+    <input id="kRange" type="range" min="0.60" max="1.00" step="0.005" />
+    <span id="kVal" class="val"></span>
+    <label for="tRange">r(px)</label>
+    <input id="tRange" type="range" min="10" max="64" step="1" />
+    <span id="tVal" class="val"></span>
+    <label for="rRange">R</label>
+    <input id="rRange" type="range" min="80" max="400" step="0.5" />
+    <span id="RVal" class="val"></span>
+    <label for="oRange">Offset</label>
+    <input id="oRange" type="range" min="-30" max="30" step="1" />
+    <span id="oVal" class="val"></span>
+    <label for="bgxRange">BG X</label>
+    <input id="bgxRange" type="range" min="-400" max="400" step="0.5" />
+    <span id="bgxVal" class="val"></span>
+    <label for="bgyRange">BG Y</label>
+    <input id="bgyRange" type="range" min="-400" max="400" step="0.5" />
+    <span id="bgyVal" class="val"></span>
+    <button id="copyBtn" type="button">Скопировать</button>
+  </div>
+
+  <script>
+    (function() {
+      const svgEl = document.querySelector('svg');
+      const cx = 793.2475 / 2;
+      const cy = 793.2475 / 2;
+      let R = 229;
+      let offset = 17;
+      // Расчёт радиуса круга в координатах viewBox, чтобы диаметр на экране ≈ var(--tap) px
+      function computeR() {
+        const style = getComputedStyle(document.documentElement);
+        const tapPx = parseFloat(style.getPropertyValue('--tap')) || 56; // диаметр
+        const rect = svgEl.getBoundingClientRect();
+        const viewW = 793.2475;
+        const scale = viewW / rect.width; // px экрана -> единицы viewBox
+        return (tapPx / 2) * scale; // радиус в координатах viewBox
+      }
+
+      // Источник в требуемом порядке по часовой стрелке, начало — с 3 часов
+      const src = [
+        { file: 'sssr.pdf', label: 'Пельмени в эпоху СССР' },
+        { file: 'Otlichiya.pdf', label: 'Чем отличаются пельмени от…' },
+        { file: 'razniestrani.pdf', label: 'Пельмени в разных странах' },
+        { file: 'interestingfacts.pdf', label: 'Интересные факты' },
+        { file: 'rituali.pdf', label: 'Пельменные ритуалы и поверье' },
+        { file: 'uralsibir.pdf', label: 'Пельмени в Сибири и на Урале' },
+        { file: 'europe.pdf', label: 'Пельмени в Европе и Азии (Европа)' },
+        { file: 'rus.pdf', label: 'Пельмени на Руси' },
+        { file: 'china.pdf', label: 'Китай' },
+        { file: 'asia.pdf', label: 'Пельмени в Азии' }
+      ];
+      const N = src.length;
+      const step = 360 / N;
+      const angleIndex0 = -90 + offset;
+      const iStart = ((Math.round((0 - angleIndex0) / step) % N) + N) % N;
+      const files = Array.from({ length: N }, (_, k) => src[(k - iStart + N) % N]);
+
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const hotspots = document.getElementById('hotspots');
+      const labelsGroup = document.getElementById('labels');
+      const params = new URLSearchParams(location.search);
+      const debug = params.has('debug');
+      if (debug) document.body.classList.add('debug');
+      // Цвета свечения по кругу
+      const glowColors = ['#ff8a00'];
+      // Включаем последовательную анимацию
+      hotspots.classList.add('sequence');
+      const seqStep = 12 / files.length; // сек на один шаг, общий цикл ~12с
+      hotspots.style.setProperty('--step', `${seqStep}s`);
+      hotspots.style.setProperty('--cycle', `${(seqStep * files.length).toFixed(2)}s`);
+
+      const baseAngles = files.map((_, i) => -90 + i * (360 / files.length));
+      const circles = [];
+      const glows = [];
+      const labels = [];
+      files.forEach((item, i) => {
+        const a = document.createElementNS(svgNS, 'a');
+        const url = `viewer.html?file=${encodeURIComponent('pdf/' + item.file)}`;
+        a.setAttribute('href', url);
+        a.setAttribute('target', '_self');
+        a.setAttribute('class', 'hotspot-link');
+        a.setAttribute('aria-label', item.label);
+        a.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', url);
+        const glow = document.createElementNS(svgNS, 'circle');
+        glow.setAttribute('class', 'glow');
+        // Индекс шага и цвет свечения
+        glow.style.setProperty('--i', String(i));
+        const color = glowColors[i % glowColors.length];
+        glow.style.setProperty('--glow-color', color);
+        const circle = document.createElementNS(svgNS, 'circle');
+        circle.setAttribute('class', 'hotspot');
+        // Индекс шага и цвет свечения
+        circle.style.setProperty('--i', String(i));
+        circle.style.setProperty('--glow-color', color);
+        a.style.setProperty('--glow-color', color);
+        a.appendChild(glow);
+        a.appendChild(circle);
+        hotspots.appendChild(a);
+        circles.push(circle);
+        glows.push(glow);
+        // Снимаем фокус сразу после клика, чтобы не оставался красный круг при возврате
+        a.addEventListener('click', () => { try { a.blur(); } catch(_){} });
+        const t = document.createElementNS(svgNS, 'text');
+        t.setAttribute('class', 'hotspot-label');
+        t.textContent = String(i + 1);
+        labelsGroup.appendChild(t);
+        labels.push(t);
+      });
+
+      function setPositions() {
+        baseAngles.forEach((deg, i) => {
+          const angle = (deg + offset) * Math.PI / 180;
+          const x = cx + Math.cos(angle) * R;
+          const y = cy + Math.sin(angle) * R;
+          circles[i].setAttribute('cx', x.toFixed(2));
+          circles[i].setAttribute('cy', y.toFixed(2));
+          glows[i].setAttribute('cx', x.toFixed(2));
+          glows[i].setAttribute('cy', y.toFixed(2));
+          labels[i].setAttribute('x', x.toFixed(2));
+          labels[i].setAttribute('y', y.toFixed(2));
+        });
+      }
+
+      function applyRadius() {
+        const r = computeR();
+        circles.forEach(c => c.setAttribute('r', r));
+        const rGlow = r * 0.7;
+        glows.forEach(g => g.setAttribute('r', rGlow));
+      }
+      setPositions();
+      applyRadius();
+      window.addEventListener('resize', applyRadius);
+      // Подсказка: снимаем класс hints через 6с или при первом взаимодействии
+      const svgRoot = document.querySelector('svg');
+      const clearHints = () => svgRoot && svgRoot.classList.remove('hints');
+      setTimeout(clearHints, 6000);
+      ['pointerdown','keydown','touchstart'].forEach(ev =>
+        window.addEventListener(ev, clearHints, { once: true, passive: true })
+      );
+      // На возврате из bfcache или после видимости снимаем фокус со всех ссылок
+      window.addEventListener('pageshow', () => {
+        document.querySelectorAll('.hotspot-link').forEach((el) => { try { el.blur(); } catch(_){} });
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          document.querySelectorAll('.hotspot-link').forEach((el) => { try { el.blur(); } catch(_){} });
+        }
+      });
+      if (debug) {
+        const kRange = document.getElementById('kRange');
+        const tRange = document.getElementById('tRange');
+        const rRange = document.getElementById('rRange');
+        const oRange = document.getElementById('oRange');
+        const bgxRange = document.getElementById('bgxRange');
+        const bgyRange = document.getElementById('bgyRange');
+        const kVal = document.getElementById('kVal');
+        const tVal = document.getElementById('tVal');
+        const RVal = document.getElementById('RVal');
+        const oVal = document.getElementById('oVal');
+        const bgxVal = document.getElementById('bgxVal');
+        const bgyVal = document.getElementById('bgyVal');
+        const copyBtn = document.getElementById('copyBtn');
+        // инициализируем tRange текущим значением CSS-переменной
+        const cs = getComputedStyle(document.documentElement);
+        const currentTap = parseFloat(cs.getPropertyValue('--tap')) || 44;
+        const currentK = parseFloat(cs.getPropertyValue('--table-k')) || 0.76;
+        const rawBgX = (cs.getPropertyValue('--bg-x') || '').trim();
+        const rawBgY = (cs.getPropertyValue('--bg-y') || '').trim();
+        const currentBgX = rawBgX ? parseFloat(rawBgX) : 50;
+        const currentBgY = rawBgY ? parseFloat(rawBgY) : 50;
+        kRange.value = String(currentK);
+        tRange.value = String(currentTap);
+        rRange.value = String(R);
+        oRange.value = String(offset);
+        bgxRange.value = String(currentBgX);
+        bgyRange.value = String(currentBgY);
+        kVal.textContent = String(currentK);
+        tVal.textContent = String(Math.round(currentTap));
+        RVal.textContent = String(R);
+        oVal.textContent = String(offset);
+        bgxVal.textContent = String(currentBgX);
+        bgyVal.textContent = String(currentBgY);
+        kRange.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value) || currentK;
+          document.documentElement.style.setProperty('--table-k', String(val));
+          // радиусы клика пересчитаем под новый масштаб
+          applyRadius();
+          kVal.textContent = String(val);
+        });
+        tRange.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value) || currentTap;
+          document.documentElement.style.setProperty('--tap', String(val));
+          applyRadius();
+          tVal.textContent = String(Math.round(val));
+        });
+        rRange.addEventListener('input', (e) => { R = parseFloat(e.target.value) || R; setPositions(); RVal.textContent = String(R); });
+        oRange.addEventListener('input', (e) => { offset = parseFloat(e.target.value) || 0; setPositions(); oVal.textContent = String(offset); });
+        bgxRange.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value) || 50;
+          document.documentElement.style.setProperty('--bg-x', String(val) + '%');
+          bgxVal.textContent = String(val);
+        });
+        bgyRange.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value) || 50;
+          document.documentElement.style.setProperty('--bg-y', String(val) + '%');
+          bgyVal.textContent = String(val);
+        });
+        copyBtn.addEventListener('click', () => {
+          const rPx = (getComputedStyle(document.documentElement).getPropertyValue('--tap') || '').trim();
+          const tableK = (getComputedStyle(document.documentElement).getPropertyValue('--table-k') || '').trim();
+          const bgX = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-x') || '0%')).trim();
+          const bgY = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-y') || '0%')).trim();
+          const text = `tableK=${tableK}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}`;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text);
+            copyBtn.textContent = 'Скопировано';
+            setTimeout(() => copyBtn.textContent = 'Скопировать', 1200);
+          } else {
+            alert(text);
+          }
+        });
+      }
+
+      // Увеличиваем зону клика для тач-устройств через pointer-events
+      // Визуально круги невидимы, подсветка появляется при hover/focus
+    })();
+  </script>
+</body>
+</html>
