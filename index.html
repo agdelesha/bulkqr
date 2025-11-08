@@ -12,11 +12,11 @@
   <meta name="googlebot" content="noindex, nofollow" />
   <style>
     :root {
-      --tap: 64; /* диаметр тап-зоны в px при отрисовке на экране */
+      --tap: 61; /* диаметр тап-зоны в px при отрисовке на экране */
       --table-k: 1; /* масштаб круга относительно vmin */
       --ring-color: #cc4832;
       --hover-fill: rgba(255,255,255,0.12);
-      --glow-color: #ff8a00; /* цвет свечения точек */
+      --glow-color: rgb(200,183,84); /* цвет свечения точек */
       --bg-x: 50%;
       --bg-y: 335%;
       --bg-blur: 18px; /* степень размытия фона */
@@ -31,13 +31,13 @@
       -moz-osx-font-smoothing: grayscale;
       touch-action: manipulation;
     }
-    /* размазанный фон через псевдоэлементы */
+    /* фон: размазанный fon.webp под слоем с pic.pdf */
     body::before {
       content: "";
       position: fixed; inset: 0;
       background: url('fon.webp') var(--bg-x, 50%) var(--bg-y, 50%) / cover no-repeat;
       filter: blur(var(--bg-blur, 18px));
-      transform: scale(1.04); /* чтобы скрыть края после blur */
+      transform: scale(1.04);
       transform-origin: center;
       z-index: -2;
       pointer-events: none;
@@ -55,10 +55,12 @@
       display: grid;
       place-items: center;
       overflow: hidden;
+      position: relative;
+      z-index: 1;
     }
     svg {
-      width: calc(100vmin * var(--table-k));
-      height: calc(100vmin * var(--table-k));
+      width: 100vw;
+      height: 100dvh;
       display: block;
     }
 
@@ -110,11 +112,11 @@
       100%       { visibility: hidden; opacity: 0; }
     }
 
-    body.debug circle.hotspot { fill: rgba(29,78,216,0.14); stroke: #1d4ed8; stroke-width: 1.5; }
+    body.debug circle.hotspot { fill: rgba(29,78,216,0.14); stroke: #1d4ed8; stroke-width: 1.5; cursor: move; }
     text.hotspot-label { display: none; }
     body.debug text.hotspot-label { display: block; fill: #1d4ed8; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; font-size: 12px; pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
 
-    #ctrl { position: fixed; left: 8px; right: 8px; bottom: 12px; transform: none; display: none; background: rgba(255,255,255,.92); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.16); padding: 8px 12px; gap: 10px; backdrop-filter: blur(8px); overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+    #ctrl { position: fixed; left: 8px; right: 8px; bottom: 12px; transform: none; display: none; background: rgba(255,255,255,.92); border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.16); padding: 8px 12px; gap: 10px; backdrop-filter: blur(8px); overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; z-index: 80; touch-action: pan-x; }
     body.debug #ctrl { display: flex; align-items: center; flex-wrap: nowrap; }
     #ctrl label { font: 12px system-ui, sans-serif; color: #333; margin-right: 6px; white-space: nowrap; }
     #ctrl input[type=range] { width: 120px; }
@@ -134,9 +136,15 @@
     #topHint.show { opacity: 1; transform: translateY(0); transition: opacity .28s ease, transform .28s ease; }
     #topHint .icon { font-size: 16px; line-height: 1; }
     #topHint .text { line-height: 1.2; }
+    /* контейнер с PDF-фоном */
+    #bgPdf { position: fixed; inset: 0; z-index: 0; }
+    #bgPdf embed, #bgPdf iframe, #bgPdf object { width: 100%; height: 100%; display: block; border: 0; pointer-events: none; }
+    /* удобство перетаскивания в debug */
+    body.debug svg { touch-action: none; }
   </style>
 </head>
 <body>
+  <div id="bgPdf" aria-hidden="true"><embed src="pic.pdf#toolbar=0&navpanes=0&scrollbar=0" type="application/pdf" /></div>
   <main class="stage">
     <!-- Базовый SVG контейнер. Используем viewBox оригинального файла -->
     <svg viewBox="0 0 793.2475 793.2475" role="img" aria-label="Интерактивная круговая навигация">
@@ -164,8 +172,7 @@
           <rect x="0" y="0" width="1" height="1" fill="url(#edgeFade)" />
         </mask>
       </defs>
-      <!-- Фоновое изображение: оптимизированный table.webp -->
-      <image id="tableImage" href="table.webp" x="0" y="0" width="793.2475" height="793.2475" preserveAspectRatio="xMidYMid meet" style="pointer-events:none" mask="url(#edgeMask)" />
+      <!-- фон внутри SVG больше не используется; изображение подложено отдельным слоем -->
 
       <!-- Слой с кликабельными точками -->
       <g id="hotspots" />
@@ -176,30 +183,9 @@
   <div id="topHint" aria-live="polite"><span class="icon">👇</span><span class="text">Нажимайте на кружочки</span></div>
 
   <div id="ctrl">
-    <label for="kRange">Size</label>
-    <input id="kRange" type="range" min="0.60" max="1.00" step="0.005" />
-    <span id="kVal" class="val"></span>
-    <label for="imgRange">Table</label>
-    <input id="imgRange" type="range" min="0.85" max="1.15" step="0.005" />
-    <span id="imgVal" class="val"></span>
     <label for="tRange">r(px)</label>
     <input id="tRange" type="range" min="10" max="64" step="1" />
     <span id="tVal" class="val"></span>
-    <label for="rRange">R</label>
-    <input id="rRange" type="range" min="80" max="400" step="0.5" />
-    <span id="RVal" class="val"></span>
-    <label for="oRange">Offset</label>
-    <input id="oRange" type="range" min="-30" max="30" step="1" />
-    <span id="oVal" class="val"></span>
-    <label for="bgxRange">BG X</label>
-    <input id="bgxRange" type="range" min="-400" max="400" step="0.5" />
-    <span id="bgxVal" class="val"></span>
-    <label for="bgyRange">BG Y</label>
-    <input id="bgyRange" type="range" min="-400" max="400" step="0.5" />
-    <span id="bgyVal" class="val"></span>
-    <label for="blurRange">BG Blur</label>
-    <input id="blurRange" type="range" min="0" max="40" step="1" />
-    <span id="blurVal" class="val"></span>
     <label for="glowRRange">Glow R</label>
     <input id="glowRRange" type="range" min="0" max="255" step="1" />
     <span id="glowRVal" class="val"></span>
@@ -217,33 +203,24 @@
   <script>
     (function() {
       const svgEl = document.querySelector('svg');
-      const tableImage = document.getElementById('tableImage');
       const cx = 793.2475 / 2;
       const cy = 793.2475 / 2;
-      let R = 229;
-      let offset = 17;
       // Читаем сохранённую конфигурацию (если есть) и применяем базовые значения сразу
       let savedConf = {};
       try { savedConf = JSON.parse(localStorage.getItem('bulkqrConfig') || '{}') || {}; } catch(_) {}
       if (savedConf && typeof savedConf === 'object') {
-        if (savedConf.tableK != null) document.documentElement.style.setProperty('--table-k', String(savedConf.tableK));
         if (savedConf.rPx != null) document.documentElement.style.setProperty('--tap', String(savedConf.rPx));
-        if (typeof savedConf.R === 'number') R = savedConf.R;
-        if (typeof savedConf.offset === 'number') offset = savedConf.offset;
-        if (savedConf.bgX) document.documentElement.style.setProperty('--bg-x', savedConf.bgX);
-        if (savedConf.bgY) document.documentElement.style.setProperty('--bg-y', savedConf.bgY);
-        if (savedConf.bgBlur) document.documentElement.style.setProperty('--bg-blur', savedConf.bgBlur);
       }
-      function applyTableImageScale(k) {
-        if (!tableImage) return;
-        const val = Math.max(0.5, Math.min(2, k || 1));
-        tableImage.setAttribute('transform', `translate(${cx},${cy}) scale(${val}) translate(${-cx},${-cy})`);
+      // координатное преобразование из клиента в систему SVG
+      function clientToSvg(x, y) {
+        const pt = svgEl.createSVGPoint();
+        pt.x = x; pt.y = y;
+        const ctm = svgEl.getScreenCTM();
+        if (!ctm) return { x: 0, y: 0 };
+        const inv = ctm.inverse();
+        const p = pt.matrixTransform(inv);
+        return { x: p.x, y: p.y };
       }
-      let tableImgK = 1;
-      if (savedConf && typeof savedConf.tableImgK === 'number') {
-        tableImgK = savedConf.tableImgK;
-      }
-      applyTableImageScale(tableImgK);
       // Расчёт радиуса круга в координатах viewBox, чтобы диаметр на экране ≈ var(--tap) px
       function computeR() {
         const style = getComputedStyle(document.documentElement);
@@ -254,7 +231,7 @@
         return (tapPx / 2) * scale; // радиус в координатах viewBox
       }
 
-      // Источник в требуемом порядке по часовой стрелке, начало — с 3 часов
+      // Источник (порядок по часовой стрелке сохранён)
       const src = [
         { file: 'sssr.pdf', label: 'Пельмени в эпоху СССР' },
         { file: 'Otlichiya.pdf', label: 'Чем отличаются пельмени от…' },
@@ -268,10 +245,7 @@
         { file: 'asia.pdf', label: 'Пельмени в Азии' }
       ];
       const N = src.length;
-      const step = 360 / N;
-      const angleIndex0 = -90 + offset;
-      const iStart = ((Math.round((0 - angleIndex0) / step) % N) + N) % N;
-      const files = Array.from({ length: N }, (_, k) => src[(k - iStart + N) % N]);
+      const files = src.slice();
 
       const svgNS = 'http://www.w3.org/2000/svg';
       const hotspots = document.getElementById('hotspots');
@@ -280,7 +254,7 @@
       const debug = params.has('debug');
       if (debug) document.body.classList.add('debug');
       // Цвета свечения по кругу
-      const glowColors = ['#ff8a00'];
+      const glowColors = ['rgb(200,183,84)'];
       // Включаем последовательную анимацию
       hotspots.classList.add('sequence');
       const seqStep = 12 / files.length; // сек на один шаг, общий цикл ~12с
@@ -290,6 +264,7 @@
       const baseAngles = files.map((_, i) => -90 + i * (360 / files.length));
       const circles = [];
       const glows = [];
+      const anchors = [];
       function setGlowColor(color) {
         document.querySelectorAll('.hotspot-link').forEach((a) => a.style.setProperty('--glow-color', color));
         circles.forEach((c) => c.style.setProperty('--glow-color', color));
@@ -321,8 +296,9 @@
         hotspots.appendChild(a);
         circles.push(circle);
         glows.push(glow);
+        anchors.push(a);
         // Снимаем фокус сразу после клика, чтобы не оставался красный круг при возврате
-        a.addEventListener('click', () => { try { a.blur(); } catch(_){} });
+        a.addEventListener('click', (e) => { if (debug) { e.preventDefault(); } try { a.blur(); } catch(_){} });
         const t = document.createElementNS(svgNS, 'text');
         t.setAttribute('class', 'hotspot-label');
         t.textContent = String(i + 1);
@@ -334,12 +310,27 @@
         const m = String(savedConf.glowRGB).match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
         if (m) setGlowColor(`rgb(${m[1]}, ${m[2]}, ${m[3]})`);
       }
-
+      // Позиции точек: либо из сохранённых, либо круг по умолчанию
+      let positions = [];
+      if (savedConf && Array.isArray(savedConf.positions) && savedConf.positions.length === N) {
+        positions = savedConf.positions.map((p, i) => ({ x: +p.x || cx, y: +p.y || cy }));
+      } else {
+        positions = [
+          {x:594.66,y:529.84},
+          {x:392.18,y:523.44},
+          {x:189.69,y:527.70},
+          {x:390.05,y:732.32},
+          {x:385.78,y:318.83},
+          {x:185.43,y:316.70},
+          {x:392.18,y:116.34},
+          {x:187.56,y:114.21},
+          {x:588.27,y:116.34},
+          {x:590.40,y:318.83}
+        ];
+      }
       function setPositions() {
-        baseAngles.forEach((deg, i) => {
-          const angle = (deg + offset) * Math.PI / 180;
-          const x = cx + Math.cos(angle) * R;
-          const y = cy + Math.sin(angle) * R;
+        positions.forEach((pos, i) => {
+          const x = pos.x, y = pos.y;
           circles[i].setAttribute('cx', x.toFixed(2));
           circles[i].setAttribute('cy', y.toFixed(2));
           glows[i].setAttribute('cx', x.toFixed(2));
@@ -388,21 +379,8 @@
         }
       });
       if (debug) {
-        const kRange = document.getElementById('kRange');
         const tRange = document.getElementById('tRange');
-        const rRange = document.getElementById('rRange');
-        const oRange = document.getElementById('oRange');
-        const bgxRange = document.getElementById('bgxRange');
-        const bgyRange = document.getElementById('bgyRange');
-        const imgRange = document.getElementById('imgRange');
-        const imgVal = document.getElementById('imgVal');
-        const kVal = document.getElementById('kVal');
         const tVal = document.getElementById('tVal');
-        const RVal = document.getElementById('RVal');
-        const oVal = document.getElementById('oVal');
-        const bgxVal = document.getElementById('bgxVal');
-        const bgyVal = document.getElementById('bgyVal');
-        const blurVal = document.getElementById('blurVal');
         const saveBtn = document.getElementById('saveBtn');
         const resetBtn = document.getElementById('resetBtn');
         const glowRRange = document.getElementById('glowRRange');
@@ -415,24 +393,10 @@
         // инициализируем tRange текущим значением CSS-переменной
         const cs = getComputedStyle(document.documentElement);
         const currentTap = parseFloat(cs.getPropertyValue('--tap')) || 44;
-        const currentK = parseFloat(cs.getPropertyValue('--table-k')) || 0.76;
-        const rawBgX = (cs.getPropertyValue('--bg-x') || '').trim();
-        const rawBgY = (cs.getPropertyValue('--bg-y') || '').trim();
-        const currentBgX = rawBgX ? parseFloat(rawBgX) : 50;
-        const currentBgY = rawBgY ? parseFloat(rawBgY) : 50;
-        const rawBgBlur = (cs.getPropertyValue('--bg-blur') || '').trim();
-        const currentBgBlur = rawBgBlur ? parseFloat(rawBgBlur) : 18;
         // Заданные по умолчанию значения для быстрого сброса
         const DEFAULTS = {
-          tableK: 1,
-          tableImgK: 1,
-          rPx: 64,
-          R: 229,
-          offset: 17,
-          bgX: '50%',
-          bgY: '335%',
-          bgBlur: '18px',
-          glow: { r: 255, g: 138, b: 0 }
+          rPx: 61,
+          glow: { r: 200, g: 183, b: 84 }
         };
         // вычисляем исходный цвет свечения
         function parseRGB(str){
@@ -451,62 +415,19 @@
         }
         let rgb = parseRGB(getComputedStyle(glows[0]).fill);
         if (!rgb) rgb = parseHex(cs.getPropertyValue('--glow-color')) || [255,138,0];
-        kRange.value = String(currentK);
         tRange.value = String(currentTap);
-        rRange.value = String(R);
-        oRange.value = String(offset);
-        bgxRange.value = String(currentBgX);
-        bgyRange.value = String(currentBgY);
-        blurRange.value = String(currentBgBlur);
         glowRRange.value = String(rgb[0]);
         glowGRange.value = String(rgb[1]);
         glowBRange.value = String(rgb[2]);
-        kVal.textContent = String(currentK);
         tVal.textContent = String(Math.round(currentTap));
-        RVal.textContent = String(R);
-        oVal.textContent = String(offset);
-        bgxVal.textContent = String(currentBgX);
-        bgyVal.textContent = String(currentBgY);
-        blurVal.textContent = String(currentBgBlur);
         glowRVal.textContent = String(rgb[0]);
         glowGVal.textContent = String(rgb[1]);
         glowBVal.textContent = String(rgb[2]);
-        imgRange.value = String(tableImgK);
-        imgVal.textContent = String(tableImgK);
-        kRange.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value) || currentK;
-          document.documentElement.style.setProperty('--table-k', String(val));
-          // радиусы клика пересчитаем под новый масштаб
-          applyRadius();
-          kVal.textContent = String(val);
-        });
-        imgRange.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value) || 1;
-          applyTableImageScale(val);
-          imgVal.textContent = String(val);
-        });
         tRange.addEventListener('input', (e) => {
           const val = parseFloat(e.target.value) || currentTap;
           document.documentElement.style.setProperty('--tap', String(val));
           applyRadius();
           tVal.textContent = String(Math.round(val));
-        });
-        rRange.addEventListener('input', (e) => { R = parseFloat(e.target.value) || R; setPositions(); RVal.textContent = String(R); });
-        oRange.addEventListener('input', (e) => { offset = parseFloat(e.target.value) || 0; setPositions(); oVal.textContent = String(offset); });
-        bgxRange.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value) || 50;
-          document.documentElement.style.setProperty('--bg-x', String(val) + '%');
-          bgxVal.textContent = String(val);
-        });
-        bgyRange.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value) || 50;
-          document.documentElement.style.setProperty('--bg-y', String(val) + '%');
-          bgyVal.textContent = String(val);
-        });
-        blurRange.addEventListener('input', (e) => {
-          const val = parseFloat(e.target.value) || 18;
-          document.documentElement.style.setProperty('--bg-blur', String(val) + 'px');
-          blurVal.textContent = String(val);
         });
         function onRGBChange(){
           const r = parseInt(glowRRange.value)||0;
@@ -522,14 +443,11 @@
         glowBRange.addEventListener('input', onRGBChange);
         copyBtn.addEventListener('click', () => {
           const rPx = (getComputedStyle(document.documentElement).getPropertyValue('--tap') || '').trim();
-          const tableK = (getComputedStyle(document.documentElement).getPropertyValue('--table-k') || '').trim();
-          const bgX = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-x') || '0%')).trim();
-          const bgY = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-y') || '0%')).trim();
-          const bgBlur = ((getComputedStyle(document.documentElement).getPropertyValue('--bg-blur') || '0px')).trim();
           const r = parseInt(glowRRange.value)||0;
           const g = parseInt(glowGRange.value)||0;
           const b = parseInt(glowBRange.value)||0;
-          const text = `tableK=${tableK}, tableImgK=${imgRange.value}, rPx=${rPx}, R=${R}, offset=${offset}, bgX=${bgX}, bgY=${bgY}, bgBlur=${bgBlur}, glowRGB=rgb(${r},${g},${b})`;
+          const pos = positions.map(p => ({ x: +p.x.toFixed(2), y: +p.y.toFixed(2) }));
+          const text = `rPx=${rPx}, glowRGB=rgb(${r},${g},${b}), positions=${JSON.stringify(pos)}`;
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text);
             copyBtn.textContent = 'Скопировано';
@@ -542,22 +460,12 @@
         saveBtn.addEventListener('click', () => {
           const csDoc = getComputedStyle(document.documentElement);
           const rPx = (csDoc.getPropertyValue('--tap') || '').trim();
-          const tableK = (csDoc.getPropertyValue('--table-k') || '').trim();
-          const bgX = (csDoc.getPropertyValue('--bg-x') || '50%').trim();
-          const bgY = (csDoc.getPropertyValue('--bg-y') || '50%').trim();
-          const bgBlur = (csDoc.getPropertyValue('--bg-blur') || '18px').trim();
           const rC = parseInt(glowRRange.value)||0;
           const gC = parseInt(glowGRange.value)||0;
           const bC = parseInt(glowBRange.value)||0;
           const conf = {
-            tableK: parseFloat(tableK),
-            tableImgK: parseFloat(imgRange.value),
             rPx: parseFloat(rPx),
-            R,
-            offset,
-            bgX,
-            bgY,
-            bgBlur,
+            positions: positions.map(p => ({ x: +p.x.toFixed(2), y: +p.y.toFixed(2) })),
             glowRGB: `rgb(${rC},${gC},${bC})`
           };
           try { localStorage.setItem('bulkqrConfig', JSON.stringify(conf)); } catch(_) {}
@@ -570,46 +478,60 @@
         resetBtn.addEventListener('click', () => {
           try { localStorage.removeItem('bulkqrConfig'); } catch(_) {}
           // CSS-переменные
-          document.documentElement.style.setProperty('--table-k', String(DEFAULTS.tableK));
           document.documentElement.style.setProperty('--tap', String(DEFAULTS.rPx));
-          document.documentElement.style.setProperty('--bg-x', DEFAULTS.bgX);
-          document.documentElement.style.setProperty('--bg-y', DEFAULTS.bgY);
-          document.documentElement.style.setProperty('--bg-blur', DEFAULTS.bgBlur);
-          // Масштаб изображения стола
-          applyTableImageScale(DEFAULTS.tableImgK);
-          // Параметры окружности
-          R = DEFAULTS.R;
-          offset = DEFAULTS.offset;
+          // Позиции по умолчанию (зафиксированные)
+          positions = [
+            {x:594.66,y:529.84},
+            {x:392.18,y:523.44},
+            {x:189.69,y:527.70},
+            {x:390.05,y:732.32},
+            {x:385.78,y:318.83},
+            {x:185.43,y:316.70},
+            {x:392.18,y:116.34},
+            {x:187.56,y:114.21},
+            {x:588.27,y:116.34},
+            {x:590.40,y:318.83}
+          ];
           setPositions();
           applyRadius();
           // Цвет свечения
           setGlowColor(`rgb(${DEFAULTS.glow.r}, ${DEFAULTS.glow.g}, ${DEFAULTS.glow.b})`);
           // Обновляем значения контролов и подписи
-          kRange.value = String(DEFAULTS.tableK);
-          imgRange.value = String(DEFAULTS.tableImgK);
           tRange.value = String(DEFAULTS.rPx);
-          rRange.value = String(DEFAULTS.R);
-          oRange.value = String(DEFAULTS.offset);
-          bgxRange.value = String(parseFloat(DEFAULTS.bgX));
-          bgyRange.value = String(parseFloat(DEFAULTS.bgY));
-          blurRange.value = String(parseFloat(DEFAULTS.bgBlur));
           glowRRange.value = String(DEFAULTS.glow.r);
           glowGRange.value = String(DEFAULTS.glow.g);
           glowBRange.value = String(DEFAULTS.glow.b);
-          kVal.textContent = String(DEFAULTS.tableK);
-          imgVal.textContent = String(DEFAULTS.tableImgK);
           tVal.textContent = String(DEFAULTS.rPx);
-          RVal.textContent = String(DEFAULTS.R);
-          oVal.textContent = String(DEFAULTS.offset);
-          bgxVal.textContent = String(parseFloat(DEFAULTS.bgX));
-          bgyVal.textContent = String(parseFloat(DEFAULTS.bgY));
-          blurVal.textContent = String(parseFloat(DEFAULTS.bgBlur));
           glowRVal.textContent = String(DEFAULTS.glow.r);
           glowGVal.textContent = String(DEFAULTS.glow.g);
           glowBVal.textContent = String(DEFAULTS.glow.b);
           const prev = resetBtn.textContent;
           resetBtn.textContent = 'Сброшено';
           setTimeout(() => resetBtn.textContent = prev || 'Сбросить', 1200);
+        });
+      }
+
+      // Перетаскивание точек в debug-режиме
+      if (debug) {
+        let dragIdx = -1;
+        function onPointerMove(e) {
+          if (dragIdx < 0) return;
+          const p = clientToSvg(e.clientX, e.clientY);
+          positions[dragIdx] = { x: p.x, y: p.y };
+          setPositions();
+        }
+        function onPointerUp() {
+          dragIdx = -1;
+          window.removeEventListener('pointermove', onPointerMove);
+          window.removeEventListener('pointerup', onPointerUp);
+        }
+        anchors.forEach((a, i) => {
+          a.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            dragIdx = i;
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp, { once: true });
+          });
         });
       }
 
