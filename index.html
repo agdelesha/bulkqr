@@ -137,7 +137,10 @@
     #topHint .icon { font-size: 16px; line-height: 1; }
     #topHint .text { line-height: 1.2; }
     /* контейнер с PDF-фоном */
-    #bgPdf { position: fixed; inset: 0; z-index: 0; }
+    #bgPdf { position: fixed; inset: 0; z-index: 0; 
+      -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%);
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 10%, rgba(0,0,0,1) 90%, rgba(0,0,0,0) 100%);
+    }
     #bgPdf embed, #bgPdf iframe, #bgPdf object { width: 100%; height: 100%; display: block; border: 0; pointer-events: none; }
     /* удобство перетаскивания в debug */
     body.debug svg { touch-action: none; }
