@@ -387,20 +387,20 @@
       }
       // Позиции точек: всегда используем новые дефолтные (обновлено 2025-11-09)
       const DEFAULT_POSITIONS = [
-        {x:1197.9,y:1533.79},
-        {x:753.32,y:1525.56},
-        {x:300.5,y:1529.67},
-        {x:745.08,y:1990.72},
-        {x:745.08,y:1064.51},
-        {x:292.27,y:1060.39},
-        {x:753.32,y:611.7},
-        {x:292.27,y:607.58},
-        {x:1193.78,y:603.46},
-        {x:1193.78,y:1064.51}
+        {x:1149.03,y:1502.02},
+        {x:755.28,y:1491.28},
+        {x:350.79,y:1491.28},
+        {x:755.28,y:1899.35},
+        {x:748.12,y:1076.05},
+        {x:350.79,y:1083.21},
+        {x:751.7,y:675.15},
+        {x:347.21,y:675.15},
+        {x:1141.87,y:678.73},
+        {x:1141.87,y:1076.05}
       ];
       let positions = [];
       // Проверяем версию конфига - если старая, игнорируем сохранённые позиции
-      const CONFIG_VERSION = 2; // увеличиваем при изменении дефолтных позиций
+      const CONFIG_VERSION = 3; // увеличиваем при изменении дефолтных позиций
       if (savedConf && savedConf.configVersion === CONFIG_VERSION && Array.isArray(savedConf.positions) && savedConf.positions.length === N) {
         positions = savedConf.positions.map((p, i) => ({ x: +p.x || cx, y: +p.y || cy }));
       } else {
@@ -610,7 +610,7 @@
           const spread = parseFloat(glowSpreadRange.value)||5;
           const intensity = parseInt(glowIntensityRange.value)||60;
           const conf = {
-            configVersion: 2,
+            configVersion: 3,
             rPx: parseFloat(rPx),
             positions: positions.map(p => ({ x: +p.x.toFixed(2), y: +p.y.toFixed(2) })),
             glowRGB: `rgb(${rC},${gC},${bC})`,
