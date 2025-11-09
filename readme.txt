@@ -17,3 +17,9 @@ git add -A
 git commit -m "upd: <что поменял>"
 git push -u origin main
 Подождать 30–120 секунд. Открой: https://agdelesha.github.io/bulkqr/
+
+
+git status
+git add -A
+git commit -m "upd: теперь квадратная форма вместо круглой"
+git push -u origin main
